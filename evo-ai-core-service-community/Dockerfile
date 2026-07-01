@@ -3,9 +3,8 @@ FROM golang:1.24.4-alpine AS builder
 
 WORKDIR /app
 
-# Cache bust: 2026-07-01
-ARG CACHEBUST=1
-RUN echo "Cache bust: $CACHEBUST"
+# Cache bust 2026-07-01-v3
+ARG CACHEBUST=3
 
 # Instala dependências do sistema
 RUN apk add --no-cache git
@@ -25,40 +24,27 @@ COPY . .
 # Compila a aplicação
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/main ./cmd/api
 
-# Debug: Verifica se o binário foi criado
-RUN ls -la /app/main
-
 # Final stage
 FROM alpine:latest
 
 WORKDIR /app
 
-# Instala ca-certificates para HTTPS requests
+# Instala ca-certificates
 RUN apk --no-cache add ca-certificates
 
-# Copia o binário compilado do stage anterior
+# Copia o binário compilado
 COPY --from=builder /app/main ./main
-
-# Copia o migrate do builder
 COPY --from=builder /go/bin/migrate ./migrate
 
-# Copia as migrations (com fallback explícito)
-COPY migrations ./migrations
-
-# Copia o script de inicialização
+# Copia migrations como wildcard (mais robusto)
+COPY ./migrations/ ./migrations/
 COPY entrypoint.sh ./entrypoint.sh
 
-# Debug: Lista arquivos no diretório
-RUN ls -la /app/
-
-# Torna os binários e script executáveis
+# Permissões
 RUN chmod +x ./main ./migrate ./entrypoint.sh
 
-# Debug: Verifica se os arquivos existem e suas permissões
-RUN ls -la ./main ./migrate ./entrypoint.sh
-
-# Expõe a porta da aplicação
+# Expõe a porta
 EXPOSE 5555
 
-# Executa o script de inicialização
-CMD ["./entrypoint.sh"] 
+# Executa
+CMD ["./entrypoint.sh"]
