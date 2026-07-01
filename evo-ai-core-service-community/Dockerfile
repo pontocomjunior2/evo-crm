@@ -3,6 +3,10 @@ FROM golang:1.24.4-alpine AS builder
 
 WORKDIR /app
 
+# Cache bust: 2026-07-01
+ARG CACHEBUST=1
+RUN echo "Cache bust: $CACHEBUST"
+
 # Instala dependências do sistema
 RUN apk add --no-cache git
 
@@ -38,7 +42,7 @@ COPY --from=builder /app/main ./main
 # Copia o migrate do builder
 COPY --from=builder /go/bin/migrate ./migrate
 
-# Copia as migrations
+# Copia as migrations (com fallback explícito)
 COPY migrations ./migrations
 
 # Copia o script de inicialização
