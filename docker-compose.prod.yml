@@ -1,8 +1,14 @@
 # =============================================================================
 # Evo CRM Community — Production Docker Compose for EasyPanel
 # =============================================================================
-# Usage: docker-compose -f docker-compose.prod.yml up -d
+# Optimized for low-memory VPS (8GB RAM shared with other apps)
 # =============================================================================
+
+# Limit build parallelism to prevent OOM on low-RAM VPS
+x-build-common: &build-common
+  args:
+    BUILDKIT_STEP_LOGGING_TIMEOUT: 600
+    BUILDKIT_CACHE_BUILD_PARALLELISM: 1
 
 services:
   # ---------------------------------------------------------------------------
@@ -26,7 +32,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 1G
 
   redis:
     image: redis:alpine
@@ -42,7 +48,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
 
   # ---------------------------------------------------------------------------
   # Auth Service (Ruby / Rails) — Port 3001
@@ -51,6 +57,7 @@ services:
     build:
       context: ./evo-auth-service-community
       dockerfile: Dockerfile
+      <<: *build-common
     restart: always
     expose:
       - "3001"
@@ -70,7 +77,6 @@ services:
     command: >
       bash -c "rm -f /rails/tmp/pids/server.pid &&
                bundle exec rails db:create db:migrate &&
-               bundle exec rails assets:precompile &&
                bundle exec rails s -p 3001 -b 0.0.0.0"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
@@ -81,12 +87,13 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 768M
 
   evo-auth-sidekiq:
     build:
       context: ./evo-auth-service-community
       dockerfile: Dockerfile
+      <<: *build-common
     restart: always
     env_file: .env
     environment:
@@ -104,7 +111,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 384M
 
   # ---------------------------------------------------------------------------
   # CRM Service (Ruby / Rails) — Port 3000
@@ -113,10 +120,13 @@ services:
     build:
       context: ./evo-ai-crm-community
       dockerfile: docker/Dockerfile
+      <<: *build-common
       args:
         BUNDLE_WITHOUT: ""
         RAILS_ENV: production
         RAILS_SERVE_STATIC_FILES: "true"
+        MAKEFLAGS: "-j2"
+        BUNDLE_JOBS: "2"
     restart: always
     expose:
       - "3000"
@@ -130,6 +140,7 @@ services:
       BOT_RUNTIME_URL: http://evo-bot-runtime:8080
       BOT_RUNTIME_SECRET: ${BOT_RUNTIME_SECRET}
       BOT_RUNTIME_POSTBACK_BASE_URL: http://evo-crm:3000
+      BUNDLE_JOBS: "2"
     volumes:
       - ./evo-ai-crm-community:/app:delegated
       - crm_bundle:/usr/local/bundle
@@ -153,16 +164,19 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 1.5G
 
   evo-crm-sidekiq:
     build:
       context: ./evo-ai-crm-community
       dockerfile: docker/Dockerfile
+      <<: *build-common
       args:
         BUNDLE_WITHOUT: ""
         RAILS_ENV: production
         RAILS_SERVE_STATIC_FILES: "true"
+        MAKEFLAGS: "-j2"
+        BUNDLE_JOBS: "2"
     restart: always
     env_file: .env
     environment:
@@ -191,7 +205,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 768M
 
   # ---------------------------------------------------------------------------
   # Core Service (Go / Gin) — Port 5555
@@ -200,6 +214,7 @@ services:
     build:
       context: ./evo-ai-core-service-community
       dockerfile: Dockerfile
+      <<: *build-common
     restart: always
     expose:
       - "5555"
@@ -227,7 +242,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 384M
 
   # ---------------------------------------------------------------------------
   # Processor Service (Python / FastAPI) — Port 8000
@@ -236,6 +251,7 @@ services:
     build:
       context: ./evo-ai-processor-community
       dockerfile: Dockerfile
+      <<: *build-common
     restart: always
     expose:
       - "8000"
@@ -266,7 +282,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 768M
 
   # ---------------------------------------------------------------------------
   # Bot Runtime (Go / Gin) — Port 8080
@@ -275,6 +291,7 @@ services:
     build:
       context: ./evo-bot-runtime
       dockerfile: Dockerfile
+      <<: *build-common
     restart: always
     expose:
       - "8080"
@@ -298,7 +315,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
 
   # ---------------------------------------------------------------------------
   # Frontend (React / Vite / Nginx) — Port 80
@@ -307,6 +324,7 @@ services:
     build:
       context: ./evo-ai-frontend-community
       dockerfile: Dockerfile
+      <<: *build-common
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
         VITE_AUTH_API_URL: ${VITE_AUTH_API_URL:-http://localhost:3001}
@@ -335,10 +353,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
 
   # ---------------------------------------------------------------------------
-  # Nginx Reverse Proxy — Port 443, 80
+  # Nginx Reverse Proxy
   # ---------------------------------------------------------------------------
   nginx:
     image: nginx:alpine
@@ -366,7 +384,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 128M
 
 volumes:
   postgres_data:
