@@ -1,14 +1,14 @@
 # =============================================================================
 # Evo CRM Community — Production Docker Compose for EasyPanel
 # =============================================================================
-# Optimized for low-memory VPS (8GB RAM shared with other apps)
+# IMPORTANT: All build contexts use "." (project root) so EasyPanel
+# can find Dockerfile paths. Each service specifies dockerfile path.
 # =============================================================================
 
-# Limit build parallelism to prevent OOM on low-RAM VPS
 x-build-common: &build-common
   args:
     BUILDKIT_STEP_LOGGING_TIMEOUT: 600
-    BUILDKIT_CACHE_BUILD_PARALLELISM: 1
+    CACHEBUST: "4"
 
 services:
   # ---------------------------------------------------------------------------
@@ -55,8 +55,8 @@ services:
   # ---------------------------------------------------------------------------
   evo-auth:
     build:
-      context: ./evo-auth-service-community
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.evo-auth
       <<: *build-common
     restart: always
     expose:
@@ -91,8 +91,8 @@ services:
 
   evo-auth-sidekiq:
     build:
-      context: ./evo-auth-service-community
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.evo-auth
       <<: *build-common
     restart: always
     env_file: .env
@@ -118,8 +118,8 @@ services:
   # ---------------------------------------------------------------------------
   evo-crm:
     build:
-      context: ./evo-ai-crm-community
-      dockerfile: docker/Dockerfile
+      context: .
+      dockerfile: Dockerfile.evo-crm
       <<: *build-common
       args:
         BUNDLE_WITHOUT: ""
@@ -153,7 +153,7 @@ services:
         condition: service_healthy
       evo-auth:
         condition: service_healthy
-    entrypoint: docker/entrypoints/rails.sh
+    entrypoint: evo-ai-crm-community/docker/entrypoints/rails.sh
     command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health/live"]
@@ -168,8 +168,8 @@ services:
 
   evo-crm-sidekiq:
     build:
-      context: ./evo-ai-crm-community
-      dockerfile: docker/Dockerfile
+      context: .
+      dockerfile: Dockerfile.evo-crm
       <<: *build-common
       args:
         BUNDLE_WITHOUT: ""
@@ -200,7 +200,7 @@ services:
         condition: service_healthy
     healthcheck:
       disable: true
-    entrypoint: docker/entrypoints/rails.sh
+    entrypoint: evo-ai-crm-community/docker/entrypoints/rails.sh
     command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
     deploy:
       resources:
@@ -212,8 +212,8 @@ services:
   # ---------------------------------------------------------------------------
   evo-core:
     build:
-      context: ./evo-ai-core-service-community
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.evo-core
       <<: *build-common
     restart: always
     expose:
@@ -249,8 +249,8 @@ services:
   # ---------------------------------------------------------------------------
   evo-processor:
     build:
-      context: ./evo-ai-processor-community
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.evo-processor
       <<: *build-common
     restart: always
     expose:
@@ -289,8 +289,8 @@ services:
   # ---------------------------------------------------------------------------
   evo-bot-runtime:
     build:
-      context: ./evo-bot-runtime
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.evo-bot-runtime
       <<: *build-common
     restart: always
     expose:
@@ -322,8 +322,8 @@ services:
   # ---------------------------------------------------------------------------
   evo-frontend:
     build:
-      context: ./evo-ai-frontend-community
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.evo-frontend
       <<: *build-common
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}

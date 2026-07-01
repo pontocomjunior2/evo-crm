@@ -1,0 +1,40 @@
+# Evo Core - Production Dockerfile
+# Uses the evo-ai-core-service-community directory as source
+FROM golang:1.24.4-alpine AS builder
+
+WORKDIR /app
+
+ARG CACHEBUST=5
+
+# Install git for go modules
+RUN apk add --no-cache git
+
+# Install golang-migrate
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+# Copy go modules
+COPY evo-ai-core-service-community/go.mod evo-ai-core-service-community/go.sum ./
+RUN go mod download
+
+# Copy source
+COPY evo-ai-core-service-community/ ./
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/main ./cmd/api
+
+# Final stage
+FROM alpine:latest
+WORKDIR /app
+
+RUN apk --no-cache add ca-certificates
+
+# Copy from builder stage (works regardless of build context)
+COPY --from=builder /app/main ./main
+COPY --from=builder /go/bin/migrate ./migrate
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+
+RUN chmod +x ./main ./migrate ./entrypoint.sh
+
+EXPOSE 5555
+CMD ["./entrypoint.sh"]
