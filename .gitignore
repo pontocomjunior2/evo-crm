@@ -1,0 +1,66 @@
+.env
+.env.local
+.env.production
+.env.*.local
+_evo*
+
+# Environment secrets - NEVER commit
+.env
+*.pem
+*.key
+nginx/ssl/
+
+# Claude
+.claude
+.claude/
+.claude/*
+.agents/*
+CLAUDE.md
+
+# Production files
+*.log
+*.sql
+*.dump
+storage/
+uploads/
+tmp/
+log/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sibling repos cloned locally but not registered in .gitmodules. They were
+# accidentally tracked as orphan gitlinks before; ignore the dirs so nobody
+# re-adds them with `git add`.
+evolution-hub
+evo-ai-docs/
+evo-flow/
+evo-crm-enterprise/
+
+# Submodules modules uninstalled for unified deploy
+.gitmodules
+
+# Submodule internal git dirs (already removed)
+evo-*/.git/
+evolution-*/.git/
+
+# Docker
+.docker/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node
+node_modules/
+.npm
+.yarn/
